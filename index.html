@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AD/DNS — Tablero de Proyecto</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #070B14; --bg2: #0C1220; --bg3: #111827;
+    --border: #1B2537; --border2: #243044;
+    --text: #DDE3EE; --muted: #4B5A72; --muted2: #8898AA;
+    --accent: #00D4AA;
+    --c1:#00D4AA; --c2:#F05252; --c3:#F59E0B;
+    --c4:#818CF8; --c5:#38BDF8; --c6:#FB923C; --c7:#4ADE80;
+    --font-mono:'JetBrains Mono',monospace;
+    --font-display:'Syne',sans-serif;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;line-height:1.5;min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,170,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+  /* HEADER */
+  .header{position:sticky;top:0;z-index:200;background:rgba(7,11,20,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:20px 32px 16px;}
+  .header-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:16px;}
+  .project-label{font-size:10px;color:var(--muted);letter-spacing:4px;text-transform:uppercase;margin-bottom:4px;}
+  .project-title{font-family:var(--font-display);font-size:20px;font-weight:800;color:#F1F5F9;letter-spacing:-.5px;}
+  .project-dates{font-size:10px;color:var(--muted);margin-top:3px;}
+  .kpis{display:flex;gap:10px;flex-wrap:wrap;}
+  .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;text-align:center;min-width:84px;}
+  .kpi-val{font-size:19px;font-weight:700;font-family:var(--font-display);}
+  .kpi-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:1px;}
+  .bar-header{display:flex;justify-content:space-between;margin-bottom:5px;}
+  .bar-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:3px;}
+  .bar-pct{font-size:10px;color:var(--accent);}
+  .bar-track{background:var(--border);border-radius:4px;height:7px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--c1),var(--c5));transition:width .5s cubic-bezier(.4,0,.2,1);}
+
+  /* TOOLBAR */
+  .toolbar{display:flex;gap:8px;align-items:center;padding:10px 32px;border-bottom:1px solid var(--border);background:var(--bg2);flex-wrap:wrap;position:relative;z-index:100;}
+  .toolbar-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-right:4px;}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-size:11px;font-weight:600;border:1px solid;transition:all .15s;user-select:none;}
+  .btn-collapse{color:var(--muted2);border-color:var(--border2);background:transparent;}
+  .btn-collapse:hover{background:var(--border);}
+  .btn-reset{color:var(--muted2);border-color:var(--border2);background:transparent;}
+  .btn-reset:hover{color:var(--c2);border-color:var(--c2);background:rgba(240,82,82,.08);}
+
+  /* SYNC STATUS */
+  .sync-status{margin-left:auto;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  .sync-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .sync-dot.connected{background:var(--c7);animation:pulse 2.5s infinite;}
+  .sync-dot.syncing{background:var(--c3);animation:pulse .6s infinite;}
+  .sync-dot.offline{background:var(--c2);}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* WHO IS EDITING */
+  .online-users{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);}
+  .user-badge{background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:2px 10px;font-size:10px;color:var(--muted2);}
+
+  /* MAIN */
+  .main{max-width:1100px;margin:0 auto;padding:24px 32px;position:relative;z-index:1;}
+
+  /* PHASE CARD */
+  .phase-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden;transition:border-color .2s;}
+  .phase-card.open{border-color:var(--phase-color,var(--border));}
+  .phase-header{display:flex;align-items:center;gap:14px;padding:15px 18px;cursor:pointer;user-select:none;border-bottom:1px solid transparent;transition:background .15s,border-color .15s;}
+  .phase-card.open .phase-header{background:#0A101D;border-color:var(--border);}
+  .phase-header:hover{background:#0A101D;}
+  .phase-stripe{width:4px;height:38px;border-radius:3px;flex-shrink:0;}
+  .phase-meta{flex:1;}
+  .phase-name-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+  .phase-name{font-size:13px;font-weight:700;color:#F1F5F9;font-family:var(--font-display);}
+  .tag{font-size:9px;color:var(--muted);background:var(--bg3);border-radius:4px;padding:2px 7px;letter-spacing:.5px;}
+  .phase-progress-row{display:flex;align-items:center;gap:10px;}
+  .phase-bar{flex:1;background:var(--border);border-radius:3px;height:5px;overflow:hidden;}
+  .phase-bar-fill{height:100%;border-radius:3px;transition:width .4s;}
+  .phase-pct{font-size:11px;font-weight:700;min-width:36px;}
+  .phase-tasks-count{font-size:10px;color:var(--muted);}
+  .chevron{color:var(--muted);font-size:16px;transition:transform .2s;}
+  .phase-card.open .chevron{transform:rotate(90deg);}
+
+  /* TASKS */
+  .tasks-wrap{padding:12px 18px 18px;}
+  .task-row{display:flex;gap:12px;align-items:flex-start;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--border);transition:border-left-color .2s;}
+  .task-row.deliverable{border-left-color:var(--phase-color,var(--accent));}
+  .status-btn{flex-shrink:0;padding:3px 9px;border-radius:5px;font-family:var(--font-mono);font-size:10px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;margin-top:2px;white-space:nowrap;}
+  .task-body{flex:1;min-width:0;}
+  .task-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+  .task-name{font-size:12px;color:#CBD5E1;line-height:1.4;}
+  .task-name.deliverable{color:var(--phase-color,var(--accent));font-weight:600;}
+  .task-dates{display:flex;gap:6px;flex-shrink:0;}
+  .slider-row{display:flex;align-items:center;gap:10px;}
+  input[type=range]{flex:1;height:4px;cursor:pointer;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:4px;outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--thumb-color,var(--accent));border:2px solid var(--bg);cursor:pointer;box-shadow:0 0 6px var(--thumb-color,var(--accent));}
+  .slider-pct{font-size:12px;font-weight:700;min-width:38px;text-align:right;}
+  .note-btn{background:var(--bg2);border:1px solid var(--border2);border-radius:5px;color:var(--muted2);font-family:var(--font-mono);font-size:10px;padding:3px 9px;cursor:pointer;transition:all .15s;}
+  .note-btn.has-note{color:var(--c5);border-color:var(--c5);background:rgba(56,189,248,.08);}
+  .task-note{margin-top:8px;font-size:11px;color:#94A3B8;background:var(--bg);border-left:2px solid var(--c5);border-radius:0 5px 5px 0;padding:6px 10px;line-height:1.5;}
+  .task-updated{font-size:9px;color:var(--muted);margin-top:3px;}
+
+  /* SUMMARY */
+  .summary-section{margin-top:8px;}
+  .section-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:4px;margin-bottom:14px;}
+  .summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:10px;}
+  .summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 12px;border-top:2px solid var(--phase-color,var(--accent));cursor:pointer;transition:border-color .15s,background .15s;}
+  .summary-card:hover{background:var(--bg3);}
+  .summary-pct{font-size:22px;font-weight:800;font-family:var(--font-display);}
+  .summary-name{font-size:10px;color:var(--muted2);margin-top:4px;line-height:1.3;}
+  .summary-mini-bar{margin-top:8px;background:var(--border);border-radius:3px;height:3px;}
+  .summary-mini-fill{height:100%;border-radius:3px;}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:center;justify-content:center;}
+  .modal{background:var(--bg2);border:1px solid var(--c5);border-radius:12px;padding:24px;width:440px;max-width:92vw;box-shadow:0 0 40px rgba(56,189,248,.15);}
+  .modal-title{font-size:12px;color:var(--muted2);margin-bottom:12px;}
+  .modal textarea{width:100%;min-height:100px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;font-size:12px;font-family:var(--font-mono);resize:vertical;outline:none;transition:border-color .15s;}
+  .modal textarea:focus{border-color:var(--c5);}
+  .modal-footer{display:flex;gap:8px;margin-top:12px;justify-content:flex-end;}
+  .btn-save{color:var(--c5);border-color:var(--c5);background:rgba(56,189,248,.08);}
+  .btn-save:hover{background:rgba(56,189,248,.18);}
+
+  /* LOADING SCREEN */
+  .loading-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  .loading-spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-text{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 18px;font-size:12px;color:var(--text);z-index:999;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:slideIn .2s ease;}
+  @keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+  /* MODO EDICIÓN */
+  .btn-edit{color:var(--c3);border-color:var(--c3);background:rgba(245,158,11,.08);}
+  .btn-edit:hover{background:rgba(245,158,11,.2);}
+  .btn-exit-edit{color:var(--c2);border-color:var(--c2);background:rgba(240,82,82,.08);}
+  .btn-exit-edit:hover{background:rgba(240,82,82,.18);}
+
+  .mode-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;
+    letter-spacing:1.5px;text-transform:uppercase;
+  }
+  .mode-badge.view{background:rgba(75,90,114,.15);border:1px solid var(--border2);color:var(--muted2);}
+  .mode-badge.edit{background:rgba(245,158,11,.12);border:1px solid var(--c3);color:var(--c3);animation:editPulse 2s infinite;}
+  @keyframes editPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 0 4px rgba(245,158,11,.08)}}
+
+  /* readonly: sliders e inputs deshabilitados visualmente */
+  body.readonly input[type=range]{pointer-events:none;opacity:.45;cursor:default;}
+  body.readonly .status-btn{pointer-events:none;opacity:.5;cursor:default;}
+  body.readonly .note-btn{pointer-events:none;opacity:.5;cursor:default;}
+
+  /* MODAL CONTRASEÑA */
+  .pwd-modal{background:var(--bg2);border:1px solid var(--c3);border-radius:12px;padding:28px;width:380px;max-width:92vw;box-shadow:0 0 50px rgba(245,158,11,.15);}
+  .pwd-modal-title{font-family:var(--font-display);font-size:15px;font-weight:800;color:#F1F5F9;margin-bottom:4px;}
+  .pwd-modal-sub{font-size:11px;color:var(--muted);margin-bottom:20px;}
+  .pwd-input-wrap{position:relative;}
+  .pwd-input{
+    width:100%;background:var(--bg);border:1px solid var(--border);
+    border-radius:8px;color:var(--text);padding:11px 14px;
+    font-size:13px;font-family:var(--font-mono);outline:none;
+    transition:border-color .15s;letter-spacing:2px;
+  }
+  .pwd-input:focus{border-color:var(--c3);}
+  .pwd-input.error{border-color:var(--c2);animation:shake .3s ease;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .pwd-error{font-size:10px;color:var(--c2);margin-top:6px;min-height:14px;}
+  .pwd-footer{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;}
+
+  .footer-note{margin-top:24px;text-align:center;font-size:10px;color:#1E293B;}
+
+  @media(max-width:640px){
+    .header,.toolbar,.main{padding-left:16px;padding-right:16px;}
+    .task-top{flex-direction:column;gap:4px;}
+    .kpi{min-width:70px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loading-screen">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Conectando con Firebase...</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="project-label">Proyecto // Active Directory</div>
+      <div class="project-title">🖧 Limpieza y Reestructuración AD/DNS</div>
+      <div class="project-dates" id="header-dates">Mar 17/03/26 → Jue 21/05/26</div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </div>
+  <div>
+    <div class="bar-header">
+      <span class="bar-label">Progreso Total del Proyecto</span>
+      <span class="bar-pct" id="global-pct-lbl">0%</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="global-bar" style="width:0%"></div></div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <span id="mode-badge" class="mode-badge view">👁 Solo vista</span>
+  <button class="btn btn-collapse" onclick="toggleAll(false)">Colapsar todo</button>
+  <button class="btn btn-collapse" onclick="toggleAll(true)">Expandir todo</button>
+  <button class="btn btn-edit" id="btn-edit" onclick="requestEdit()">✏️ Editar</button>
+  <button class="btn btn-exit-edit" id="btn-exit" style="display:none" onclick="exitEdit()">🔒 Salir de edición</button>
+  <div class="sync-status">
+    <div class="sync-dot offline" id="sync-dot"></div>
+    <span id="sync-txt">Conectando...</span>
+  </div>
+</div>
+
+<!-- MODAL CONTRASEÑA -->
+<div class="modal-overlay" id="pwd-modal" style="display:none" onclick="closePwdModal()">
+  <div class="pwd-modal" onclick="event.stopPropagation()">
+    <div class="pwd-modal-title">🔐 Acceso de edición</div>
+    <div class="pwd-modal-sub">Ingresa la contraseña para habilitar la edición del tablero.</div>
+    <input class="pwd-input" id="pwd-input" type="password" placeholder="Contraseña"
+      onkeydown="if(event.key==='Enter')checkPassword()"
+      oninput="document.getElementById('pwd-error').textContent=''"/>
+    <div class="pwd-error" id="pwd-error"></div>
+    <div class="pwd-footer">
+      <button class="btn btn-reset" onclick="closePwdModal()">Cancelar</button>
+      <button class="btn btn-edit" onclick="checkPassword()">Acceder</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="main-content"></div>
+
+<!-- NOTE MODAL -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="closeModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">📝 Nota de seguimiento</div>
+    <textarea id="modal-textarea" placeholder="Observaciones, bloqueos, referencias, responsable..."></textarea>
+    <div class="modal-footer">
+      <button class="btn btn-reset" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-save" onclick="saveNote()">Guardar nota</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, update, set, get }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ── CONFIG ──────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCvoowF5cs9gfEROr0Kaq-J7uO95dD5WBI",
+  authDomain: "ad-dashboard-a64c6.firebaseapp.com",
+  databaseURL: "https://ad-dashboard-a64c6-default-rtdb.firebaseio.com",
+  projectId: "ad-dashboard-a64c6",
+  storageBucket: "ad-dashboard-a64c6.firebasestorage.app",
+  messagingSenderId: "967605900660",
+  appId: "1:967605900660:web:e7c86e2ea2b1aae7550821"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const ROOT = "ad_dashboard";
+
+// ── PHASES DATA ──────────────────────────────
+const PHASES = [
+  {id:"fase1",name:"Análisis y Planeación",duration:"10 días",start:"17/03/26",end:"30/03/26",color:"#00D4AA",
+   tasks:[
+    {id:"t1",name:"Recolección de Información",duration:"6 días",start:"17/03/26",end:"24/03/26"},
+    {id:"t2",name:"Revisión de Riesgos y Priorización",duration:"3 días",start:"25/03/26",end:"27/03/26"},
+    {id:"t3",name:"Entregables (Análisis Inicial, Control de Cambios Aprobado)",duration:"1 día",start:"30/03/26",end:"30/03/26",isDeliverable:true},
+  ]},
+  {id:"fase2",name:"Endurecimiento y Optimización",duration:"7 días",start:"31/03/26",end:"10/04/26",color:"#F05252",
+   tasks:[
+    {id:"t4",name:"Cambio de Contraseñas de Admins de Dominio",duration:"2 días",start:"31/03/26",end:"01/04/26"},
+    {id:"t5",name:"Remoción de Domain Admin y grupos privilegiados innecesarios",duration:"2 días",start:"06/04/26",end:"07/04/26"},
+    {id:"t6",name:"Validación de cuentas externas (Aplicaciones/Servicios)",duration:"2 días",start:"08/04/26",end:"09/04/26"},
+    {id:"t7",name:"Entregables (Lista final Grupos Privilegiados, bitácora de Cambios)",duration:"1 día",start:"10/04/26",end:"10/04/26",isDeliverable:true},
+  ]},
+  {id:"fase3",name:"Depuración AD",duration:"5 días",start:"13/04/26",end:"17/04/26",color:"#F59E0B",
+   tasks:[
+    {id:"t8",name:"Depuración de Cuentas Deshabilitadas",duration:"2 días",start:"13/04/26",end:"14/04/26"},
+    {id:"t9",name:"Depuración de Equipos en Dominio",duration:"2 días",start:"15/04/26",end:"16/04/26"},
+    {id:"t10",name:"Entregables (Inventario Actualizado de Equipos, Reporte de Eliminados)",duration:"1 día",start:"17/04/26",end:"17/04/26",isDeliverable:true},
+  ]},
+  {id:"fase4",name:"Depuración DNS",duration:"5 días",start:"20/04/26",end:"24/04/26",color:"#818CF8",
+   tasks:[
+    {id:"t11",name:"Depuración de Objetos en el DNS",duration:"2 días",start:"20/04/26",end:"21/04/26"},
+    {id:"t12",name:"Depuración de Subredes y Zona Reverse",duration:"2 días",start:"22/04/26",end:"23/04/26"},
+    {id:"t13",name:"Entregables (Respaldo Zonas DNS, Reporte Inconsistencias, Validación DNS)",duration:"1 día",start:"24/04/26",end:"24/04/26",isDeliverable:true},
+  ]},
+  {id:"fase5",name:"Reorganización OU",duration:"5 días",start:"27/04/26",end:"04/05/26",color:"#38BDF8",
+   tasks:[
+    {id:"t14",name:"Delimitación de Zonas (OU) — Pruebas, Desarrollo y Producción",duration:"1 día",start:"27/04/26",end:"27/04/26"},
+    {id:"t15",name:"Delimitación de Zonas (OU) para Medusa y SPEI",duration:"1 día",start:"28/04/26",end:"28/04/26"},
+    {id:"t16",name:"Vincular GPOs Específicas",duration:"1 día",start:"29/04/26",end:"29/04/26"},
+    {id:"t17",name:"Migrar objetos a las OU correspondientes",duration:"1 día",start:"30/04/26",end:"30/04/26"},
+    {id:"t18",name:"Entregables (Documento nueva estructura OUs, Relación de Objetos Reubicados)",duration:"1 día",start:"04/05/26",end:"04/05/26",isDeliverable:true},
+  ]},
+  {id:"fase6",name:"Pruebas",duration:"10 días",start:"05/05/26",end:"18/05/26",color:"#FB923C",
+   tasks:[
+    {id:"t19",name:"Validación de Inicio de Sesión de Usuarios, Equipos y Servicios",duration:"2 días",start:"05/05/26",end:"06/05/26"},
+    {id:"t20",name:"Probar resolución DNS (forward y reverse) y registros SRV de AD",duration:"2 días",start:"07/05/26",end:"08/05/26"},
+    {id:"t21",name:"Verificar Replicación entre Controladores de Dominio",duration:"1 día",start:"11/05/26",end:"11/05/26"},
+    {id:"t22",name:"Revisar GPOs",duration:"4 días",start:"12/05/26",end:"15/05/26"},
+    {id:"t23",name:"Entregables (Checklist de Validaciones, Reporte de Pruebas y Hallazgos)",duration:"1 día",start:"18/05/26",end:"18/05/26",isDeliverable:true},
+  ]},
+  {id:"fase7",name:"Cierre",duration:"3 días",start:"19/05/26",end:"21/05/26",color:"#4ADE80",
+   tasks:[
+    {id:"t24",name:"Informe final con Inventarios y Estructura AD/DNS Actualizada",duration:"1 día",start:"19/05/26",end:"19/05/26"},
+    {id:"t25",name:"Evidencias de Respaldo y de Cambios Realizados",duration:"1 día",start:"20/05/26",end:"20/05/26"},
+    {id:"t26",name:"Recomendaciones de Mantenimiento Continuo (Mensuales/Trimestrales)",duration:"1 día",start:"21/05/26",end:"21/05/26"},
+  ]},
+];
+
+const STATUS_CYCLE = ["pending","in-progress","done"];
+const STATUS = {
+  pending:      {label:"Pendiente",   dot:"⬜", color:"#4B5A72", bg:"rgba(75,90,114,.15)"},
+  "in-progress":{label:"En Progreso", dot:"🔄", color:"#F59E0B", bg:"rgba(245,158,11,.12)"},
+  done:         {label:"Completado",  dot:"✅", color:"#4ADE80", bg:"rgba(74,222,128,.12)"},
+};
+
+// ── STATE ────────────────────────────────────
+let progress  = {};
+let expanded  = {};
+let editingNote = null;
+let dbReady   = false;
+let editMode  = false;   // false = solo vista, true = edición habilitada
+
+// Hash simple para la contraseña (no exponer en texto plano)
+const PWD_HASH = "3d6ad4dce42b77b0b2ba9a00a4ee63da"; // MD5 de "Old32-Cost-See66"
+
+async function hashMD5(str) {
+  // Implementación MD5 liviana
+  function safeAdd(x,y){var lsw=(x&0xffff)+(y&0xffff);var msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xffff);}
+  function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>(32-cnt));}
+  function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
+  function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|((~b)&d),a,b,x,s,t);}
+  function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&(~d)),a,b,x,s,t);}
+  function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
+  function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
+  function calc(x,len){x[len>>5]|=0x80<<(len%32);x[(((len+64)>>>9)<<4)+14]=len;var i,olda,oldb,oldc,oldd,a=1732584193,b=-271733879,c=-1732584194,d=271733878;for(i=0;i<x.length;i+=16){olda=a;oldb=b;oldc=c;oldd=d;a=md5ff(a,b,c,d,x[i],7,-680876936);d=md5ff(d,a,b,c,x[i+1],12,-389564586);c=md5ff(c,d,a,b,x[i+2],17,606105819);b=md5ff(b,c,d,a,x[i+3],22,-1044525330);a=md5ff(a,b,c,d,x[i+4],7,-176418897);d=md5ff(d,a,b,c,x[i+5],12,1200080426);c=md5ff(c,d,a,b,x[i+6],17,-1473231341);b=md5ff(b,c,d,a,x[i+7],22,-45705983);a=md5ff(a,b,c,d,x[i+8],7,1770035416);d=md5ff(d,a,b,c,x[i+9],12,-1958414417);c=md5ff(c,d,a,b,x[i+10],17,-42063);b=md5ff(b,c,d,a,x[i+11],22,-1990404162);a=md5ff(a,b,c,d,x[i+12],7,1804603682);d=md5ff(d,a,b,c,x[i+13],12,-40341101);c=md5ff(c,d,a,b,x[i+14],17,-1502002290);b=md5ff(b,c,d,a,x[i+15],22,1236535329);a=md5gg(a,b,c,d,x[i+1],5,-165796510);d=md5gg(d,a,b,c,x[i+6],9,-1069501632);c=md5gg(c,d,a,b,x[i+11],14,643717713);b=md5gg(b,c,d,a,x[i],20,-373897302);a=md5gg(a,b,c,d,x[i+5],5,-701558691);d=md5gg(d,a,b,c,x[i+10],9,38016083);c=md5gg(c,d,a,b,x[i+15],14,-660478335);b=md5gg(b,c,d,a,x[i+4],20,-405537848);a=md5gg(a,b,c,d,x[i+9],5,568446438);d=md5gg(d,a,b,c,x[i+14],9,-1019803690);c=md5gg(c,d,a,b,x[i+3],14,-187363961);b=md5gg(b,c,d,a,x[i+8],20,1163531501);a=md5gg(a,b,c,d,x[i+13],5,-1444681467);d=md5gg(d,a,b,c,x[i+2],9,-51403784);c=md5gg(c,d,a,b,x[i+7],14,1735328473);b=md5gg(b,c,d,a,x[i+12],20,-1926607734);a=md5hh(a,b,c,d,x[i+5],4,-378558);d=md5hh(d,a,b,c,x[i+8],11,-2022574463);c=md5hh(c,d,a,b,x[i+11],16,1839030562);b=md5hh(b,c,d,a,x[i+14],23,-35309556);a=md5hh(a,b,c,d,x[i+1],4,-1530992060);d=md5hh(d,a,b,c,x[i+4],11,1272893353);c=md5hh(c,d,a,b,x[i+7],16,-155497632);b=md5hh(b,c,d,a,x[i+10],23,-1094730640);a=md5hh(a,b,c,d,x[i+13],4,681279174);d=md5hh(d,a,b,c,x[i],11,-358537222);c=md5hh(c,d,a,b,x[i+3],16,-722521979);b=md5hh(b,c,d,a,x[i+6],23,76029189);a=md5hh(a,b,c,d,x[i+9],4,-640364487);d=md5hh(d,a,b,c,x[i+12],11,-421815835);c=md5hh(c,d,a,b,x[i+15],16,530742520);b=md5hh(b,c,d,a,x[i+2],23,-995338651);a=md5ii(a,b,c,d,x[i],6,-198630844);d=md5ii(d,a,b,c,x[i+7],10,1126891415);c=md5ii(c,d,a,b,x[i+14],15,-1416354905);b=md5ii(b,c,d,a,x[i+5],21,-57434055);a=md5ii(a,b,c,d,x[i+12],6,1700485571);d=md5ii(d,a,b,c,x[i+3],10,-1894986606);c=md5ii(c,d,a,b,x[i+10],15,-1051523);b=md5ii(b,c,d,a,x[i+1],21,-2054922799);a=md5ii(a,b,c,d,x[i+8],6,1873313359);d=md5ii(d,a,b,c,x[i+15],10,-30611744);c=md5ii(c,d,a,b,x[i+6],15,-1560198380);b=md5ii(b,c,d,a,x[i+13],21,1309151649);a=md5ii(a,b,c,d,x[i+4],6,-145523070);d=md5ii(d,a,b,c,x[i+11],10,-1120210379);c=md5ii(c,d,a,b,x[i+2],15,718787259);b=md5ii(b,c,d,a,x[i+9],21,-343485551);a=safeAdd(a,olda);b=safeAdd(b,oldb);c=safeAdd(c,oldc);d=safeAdd(d,oldd);}return[a,b,c,d];}
+  function str2binl(str){var bin=[];var mask=(1<<8)-1;for(var i=0;i<str.length*8;i+=8)bin[i>>5]|=(str.charCodeAt(i/8)&mask)<<(i%32);return bin;}
+  function binl2hex(binarray){var hex="0123456789abcdef";var str="";for(var i=0;i<binarray.length*4;i++)str+=hex.charAt((binarray[i>>2]>>((i%4)*8+4))&0xf)+hex.charAt((binarray[i>>2]>>((i%4)*8))&0xf);return str;}
+  const bin = str2binl(str);
+  return binl2hex(calc(bin, str.length*8));
+}
+
+function defaultProgress() {
+  const p = {};
+  PHASES.forEach(ph => ph.tasks.forEach(t => {
+    p[t.id] = { progress:0, status:"pending", notes:"", updatedAt:"" };
+  }));
+  return p;
+}
+
+function defaultExpanded() {
+  const e = {};
+  PHASES.forEach((ph,i) => e[ph.id] = i===0);
+  return e;
+}
+
+// ── FIREBASE SYNC ─────────────────────────────
+function setSyncState(state) {
+  const dot = document.getElementById("sync-dot");
+  const txt = document.getElementById("sync-txt");
+  if(!dot||!txt) return;
+  dot.className = "sync-dot "+state;
+  const msgs = { connected:"Sincronizado · tiempo real", syncing:"Guardando...", offline:"Sin conexión" };
+  txt.textContent = msgs[state] || state;
+}
+
+// Listen to progress changes from Firebase (real-time)
+const progressRef = ref(db, `${ROOT}/progress`);
+onValue(progressRef, (snap) => {
+  const data = snap.val();
+  if(data) {
+    // Merge — keep local defaults for any missing task
+    const defaults = defaultProgress();
+    progress = { ...defaults, ...data };
+  } else {
+    // First run — initialize in Firebase
+    progress = defaultProgress();
+    set(ref(db, `${ROOT}/progress`), progress);
+  }
+  if(!dbReady) {
+    // First load
+    expanded = defaultExpanded();
+    dbReady = true;
+    document.getElementById("loading-screen").style.display = "none";
+    render();
+  } else {
+    render();
+  }
+  setSyncState("connected");
+}, (err) => {
+  console.error(err);
+  setSyncState("offline");
+  if(!dbReady) {
+    progress = defaultProgress();
+    expanded = defaultExpanded();
+    dbReady = true;
+    document.getElementById("loading-screen").style.display = "none";
+    render();
+  }
+});
+
+// Write a single task update to Firebase
+function writeTask(taskId, data) {
+  setSyncState("syncing");
+  update(ref(db, `${ROOT}/progress/${taskId}`), data)
+    .then(()=>setSyncState("connected"))
+    .catch(()=>setSyncState("offline"));
+}
+
+// ── ACTIONS ──────────────────────────────────
+function cycleStatus(taskId) {
+  if(!editMode) return;
+  const tp = progress[taskId];
+  const cur = tp.status || "pending";
+  const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cur)+1) % STATUS_CYCLE.length];
+  const newProg = next==="done"?100:next==="in-progress"?Math.max(tp.progress||0,10):0;
+  const patch = { status:next, progress:newProg, updatedAt:new Date().toISOString() };
+  progress[taskId] = {...tp, ...patch};
+  writeTask(taskId, patch);
+  render();
+}
+
+// Called while dragging (local only)
+window._sliderInput = function(taskId, val) {
+  if(!editMode) return;
+  progress[taskId].progress = val;
+  // update just the pct display and bars without full re-render
+  const el = document.getElementById("pct-"+taskId);
+  if(el) {
+    const pctColor = val===100?"#4ADE80":val>0?"#F59E0B":"#4B5A72";
+    el.textContent = val+"%";
+    el.style.color = pctColor;
+  }
+  // update phase bars
+  const phase = PHASES.find(ph=>ph.tasks.find(t=>t.id===taskId));
+  if(phase) {
+    const pPct = phaseProgress(phase);
+    const pb = document.getElementById("phase-bar-"+phase.id);
+    const pp = document.getElementById("phase-pct-"+phase.id);
+    if(pb) pb.style.width=pPct+"%";
+    if(pp) pp.textContent=pPct+"%";
+    const sf = document.getElementById("sc-fill-"+phase.id);
+    const sp = document.getElementById("sc-pct-"+phase.id);
+    if(sf) sf.style.width=pPct+"%";
+    if(sp) sp.textContent=pPct+"%";
+  }
+  updateGlobalBar();
+};
+
+// Called on mouseup/touchend — write to Firebase
+window._sliderCommit = function(taskId, val) {
+  if(!editMode) return;
+  const newStatus = val===100?"done":val>0?"in-progress":"pending";
+  const patch = { progress:val, status:newStatus, updatedAt:new Date().toISOString() };
+  progress[taskId] = {...progress[taskId], ...patch};
+  writeTask(taskId, patch);
+};
+
+window.cycleStatus    = cycleStatus;
+window.togglePhase    = (id) => { expanded[id]=!expanded[id]; render(); };
+window.toggleAll      = (open) => { PHASES.forEach(ph=>expanded[ph.id]=open); render(); };
+window.openNote       = (id) => {
+  if(!editMode) return;
+  editingNote=id;
+  document.getElementById("modal-textarea").value=progress[id]?.notes||"";
+  document.getElementById("modal").style.display="flex";
+  setTimeout(()=>document.getElementById("modal-textarea").focus(),50);
+};
+window.closeModal = () => { document.getElementById("modal").style.display="none"; editingNote=null; };
+window.saveNote = () => {
+  if(!editingNote||!editMode) return;
+  const txt = document.getElementById("modal-textarea").value.trim();
+  const patch = { notes:txt, updatedAt:new Date().toISOString() };
+  progress[editingNote] = {...progress[editingNote], ...patch};
+  writeTask(editingNote, patch);
+  closeModal();
+  render();
+};
+
+// ── EDIT MODE ─────────────────────────────────
+window.requestEdit = () => {
+  document.getElementById("pwd-input").value="";
+  document.getElementById("pwd-error").textContent="";
+  document.getElementById("pwd-modal").style.display="flex";
+  setTimeout(()=>document.getElementById("pwd-input").focus(),80);
+};
+window.closePwdModal = () => {
+  document.getElementById("pwd-modal").style.display="none";
+};
+window.checkPassword = async () => {
+  const val = document.getElementById("pwd-input").value;
+  const hash = await hashMD5(val);
+  if(hash === PWD_HASH) {
+    editMode = true;
+    closePwdModal();
+    document.body.classList.remove("readonly");
+    document.getElementById("mode-badge").className="mode-badge edit";
+    document.getElementById("mode-badge").textContent="✏️ Modo Edición";
+    document.getElementById("btn-edit").style.display="none";
+    document.getElementById("btn-exit").style.display="inline-flex";
+    showToast("✅ Modo edición habilitado");
+  } else {
+    const inp = document.getElementById("pwd-input");
+    inp.classList.add("error");
+    document.getElementById("pwd-error").textContent="Contraseña incorrecta. Inténtalo de nuevo.";
+    setTimeout(()=>inp.classList.remove("error"),400);
+    inp.value="";
+    inp.focus();
+  }
+};
+window.exitEdit = () => {
+  editMode = false;
+  document.body.classList.add("readonly");
+  document.getElementById("mode-badge").className="mode-badge view";
+  document.getElementById("mode-badge").textContent="👁 Solo vista";
+  document.getElementById("btn-edit").style.display="inline-flex";
+  document.getElementById("btn-exit").style.display="none";
+  showToast("🔒 Modo solo vista activado");
+};
+
+document.addEventListener("keydown", e => {
+  if(e.key==="Escape"){
+    closeModal();
+    closePwdModal();
+  }
+});
+
+// Iniciar en solo vista
+document.body.classList.add("readonly");
+
+// ── HELPERS ───────────────────────────────────
+function phaseProgress(phase) {
+  const vals = phase.tasks.map(t=>progress[t.id]?.progress||0);
+  return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+}
+function globalStats() {
+  const tasks = PHASES.flatMap(p=>p.tasks);
+  const total=tasks.length;
+  const done=tasks.filter(t=>progress[t.id]?.status==="done").length;
+  const inProg=tasks.filter(t=>progress[t.id]?.status==="in-progress").length;
+  const pct=Math.round(tasks.reduce((acc,t)=>acc+(progress[t.id]?.progress||0),0)/total);
+  return {total,done,inProg,pct};
+}
+function updateGlobalBar() {
+  const {pct,done,total,inProg}=globalStats();
+  const gl=document.getElementById("global-bar");
+  const gp=document.getElementById("global-pct-lbl");
+  if(gl) gl.style.width=pct+"%";
+  if(gp) gp.textContent=pct+"%";
+}
+function fmtDate(iso) {
+  if(!iso) return "";
+  try { return new Date(iso).toLocaleDateString("es-MX",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}); }
+  catch(e){ return ""; }
+}
+
+// ── RENDER ─────────────────────────────────────
+function render() {
+  const {total,done,inProg,pct}=globalStats();
+  const today=new Date().toLocaleDateString("es-MX",{weekday:"short",day:"2-digit",month:"short",year:"numeric"});
+
+  // KPIs
+  document.getElementById("kpis").innerHTML=[
+    {id:"kpi-pct", val:pct+"%",       lbl:"Avance",      color:"var(--c1)"},
+    {id:"kpi-done",val:`${done}/${total}`,lbl:"Completadas",color:"var(--c7)"},
+    {id:"kpi-prog",val:inProg,         lbl:"En Progreso", color:"var(--c3)"},
+    {id:"kpi-ph",  val:PHASES.length,  lbl:"Fases",       color:"var(--c4)"},
+  ].map(k=>`<div class="kpi" id="${k.id}">
+    <div class="kpi-val" style="color:${k.color}">${k.val}</div>
+    <div class="kpi-lbl">${k.lbl}</div>
+  </div>`).join("");
+
+  document.getElementById("global-pct-lbl").textContent=pct+"%";
+  document.getElementById("global-bar").style.width=pct+"%";
+  document.getElementById("header-dates").textContent=`Mar 17/03/26 → Jue 21/05/26  ·  Hoy: ${today}`;
+
+  let html="";
+  PHASES.forEach(ph=>{
+    const pPct=phaseProgress(ph);
+    const isOpen=expanded[ph.id];
+    const pDone=ph.tasks.filter(t=>progress[t.id]?.status==="done").length;
+
+    html+=`<div class="phase-card${isOpen?" open":""}" style="--phase-color:${ph.color}">
+      <div class="phase-header" onclick="togglePhase('${ph.id}')">
+        <div class="phase-stripe" style="background:${ph.color}"></div>
+        <div class="phase-meta">
+          <div class="phase-name-row">
+            <span class="phase-name">${ph.name}</span>
+            <span class="tag">${ph.duration}</span>
+            <span class="tag">${ph.start} → ${ph.end}</span>
+          </div>
+          <div class="phase-progress-row">
+            <div class="phase-bar">
+              <div class="phase-bar-fill" id="phase-bar-${ph.id}" style="width:${pPct}%;background:${ph.color}"></div>
+            </div>
+            <span class="phase-pct" id="phase-pct-${ph.id}" style="color:${ph.color}">${pPct}%</span>
+            <span class="phase-tasks-count">${pDone}/${ph.tasks.length} tareas</span>
+          </div>
+        </div>
+        <span class="chevron">›</span>
+      </div>`;
+
+    if(isOpen){
+      html+=`<div class="tasks-wrap">`;
+      ph.tasks.forEach(task=>{
+        const tp=progress[task.id]||{progress:0,status:"pending",notes:"",updatedAt:""};
+        const st=STATUS[tp.status]||STATUS.pending;
+        const pctColor=tp.progress===100?"#4ADE80":tp.progress>0?"#F59E0B":"#4B5A72";
+        const upd=fmtDate(tp.updatedAt);
+
+        html+=`<div class="task-row${task.isDeliverable?" deliverable":""}" style="--phase-color:${ph.color}">
+          <button class="status-btn"
+            style="color:${st.color};border-color:${st.color};background:${st.bg}"
+            onclick="cycleStatus('${task.id}')"
+            title="Clic para cambiar estado">${st.dot} ${st.label}</button>
+          <div class="task-body">
+            <div class="task-top">
+              <span class="task-name${task.isDeliverable?" deliverable":""}">${task.isDeliverable?"📦 ":""}${task.name}</span>
+              <div class="task-dates">
+                <span class="tag">${task.start} → ${task.end}</span>
+                <span class="tag">${task.duration}</span>
+              </div>
+            </div>
+            <div class="slider-row">
+              <input type="range" min="0" max="100" step="5" value="${tp.progress}"
+                style="--thumb-color:${ph.color}"
+                oninput="_sliderInput('${task.id}',parseInt(this.value))"
+                onchange="_sliderCommit('${task.id}',parseInt(this.value))"
+                title="Ajustar avance"/>
+              <span class="slider-pct" id="pct-${task.id}" style="color:${pctColor}">${tp.progress}%</span>
+              <button class="note-btn${tp.notes?" has-note":""}" onclick="openNote('${task.id}')">
+                ${tp.notes?"📝 Nota":"＋ nota"}
+              </button>
+            </div>
+            ${tp.notes?`<div class="task-note">${tp.notes.replace(/\n/g,"<br>")}
+              ${upd?`<span style="color:var(--muted);font-size:9px"> — ${upd}</span>`:""}
+            </div>`:""}
+            ${upd&&!tp.notes?`<div class="task-updated">Actualizado: ${upd}</div>`:""}
+          </div>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+  });
+
+  // Summary grid
+  html+=`<div class="summary-section">
+    <div class="section-label">Resumen por Fase</div>
+    <div class="summary-grid">`;
+  PHASES.forEach(ph=>{
+    const pPct=phaseProgress(ph);
+    html+=`<div class="summary-card" style="--phase-color:${ph.color}"
+      onclick="expanded['${ph.id}']=true;render();document.getElementById('phase-bar-${ph.id}')?.closest('.phase-card')?.scrollIntoView({behavior:'smooth'})">
+      <div class="summary-pct" id="sc-pct-${ph.id}" style="color:${ph.color}">${pPct}%</div>
+      <div class="summary-name">${ph.name}</div>
+      <div class="summary-mini-bar">
+        <div class="summary-mini-fill" id="sc-fill-${ph.id}" style="width:${pPct}%;background:${ph.color}"></div>
+      </div>
+    </div>`;
+  });
+  html+=`</div></div>
+  <div class="footer-note">AD/DNS Dashboard · Firebase Realtime DB · ${today}</div>`;
+
+  document.getElementById("main-content").innerHTML=html;
+}
+
+// ── TOAST ──────────────────────────────────────
+window.showToast = function(msg) {
+  const t=document.createElement("div"); t.className="toast"; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transition="opacity .4s"; setTimeout(()=>t.remove(),400); },2600);
+};
+</script>
+</body>
+</html>
